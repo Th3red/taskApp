@@ -21,9 +21,10 @@ router.post('/signup', async (req, res) => { // Use async/await
   
     try {
       const user = new User({ // Create user directly with the data
-        name: req.body.name,
-        username: req.body.username,
+        username: req.body.name,
+        role: req.body.role,
         password: req.body.password,
+        email: req.body.email   
       });
   
       await user.save(); // Use await with user.save()
