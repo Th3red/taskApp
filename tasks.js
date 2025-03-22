@@ -21,6 +21,7 @@ const TaskSchema = new Schema({
   description: {
     type: String
   },
+  section: { type: Number},
   assignmentNumber: {type: Number},
   assignedTo: {type: Schema.Types.ObjectId, ref: 'User'},
   status: { type: String, enum: ['Not Started', 'In Progress', 'Completed'], default: 'Not Started' },
