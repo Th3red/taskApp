@@ -1,0 +1,40 @@
+{
+  "name": "taskapp",
+  "version": "1.0.0",
+  "description": "Web API for task management",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Th3red/taskApp.git"
+  },
+  "keywords": [],
+  "author": "Kevin Schmitz",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Th3red/taskApp/issues"
+  },
+  "homepage": "https://github.com/Th3red/taskApp#readme",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "http": "0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.14.2",
+    "mongoose": "^8.12.1",
+    "passport": "^0.7.0",
+    "passport-http": "^0.3.0",
+    "passport-jwt": "^4.0.1"
+  },
+  "devDependencies": {
+    "chai": "^4.5.0",
+    "chai-http": "^4.4.0",
+    "mocha": "^10.8.2"
+  }
+}
