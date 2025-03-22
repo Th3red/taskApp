@@ -12,3 +12,21 @@ const connectDB = async () => {
 };
 
 connectDB();
+
+const TaskSchema = new Schema({
+  title: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String
+  },
+  assignmentNumber: {type: Number},
+  assignedTo: {type: Schema.Types.ObjectId, ref: 'User'},
+  status: { type: String, enum: ['Not Started', 'In Progress', 'Completed'], default: 'Not Started' },
+  approvalByLead: { type: Boolean, default: false},
+  dueDate: { type: Date},
+  createdAt: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model('Task', TaskSchema);
