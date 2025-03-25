@@ -28,6 +28,7 @@ const UserSchema = new Schema({
         type: String,
         required: true
     },
+    team: { type: Schema.Types.ObjectId, ref: 'Team' },
     email: {
         type: String,
         required: true

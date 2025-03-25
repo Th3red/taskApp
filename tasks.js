@@ -21,6 +21,7 @@ const TaskSchema = new Schema({
   description: {
     type: String
   },
+  team: { type: Schema.Types.ObjectId, ref: 'Team' },
   section: { type: Number},
   assignmentNumber: {type: Number},
   assignedTo: {type: Schema.Types.ObjectId, ref: 'User'},

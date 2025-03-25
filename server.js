@@ -12,134 +12,136 @@ app.use(passport.initialize());
 const router = express.Router();
 const User = require('./users');
 const Task = require('./tasks');
+const Team = require('./team');
 const nodemailer = require('nodemailer');
+// Signup route with optional team assignment
+router.post('/signup', async (req, res) => {
+  const { username, password, email, role, teamId } = req.body;
+  if (!username || !password || !email) {
+    return res.status(400).json({ success: false, msg: 'Please include username, email, and password.' });
+  }
 
-router.post('/signup', async (req, res) => { // Use async/await
-    if (!req.body.username || !req.body.password) {
-      return res.status(400).json({ success: false, msg: 'Please include both username and password to signup.' }); // 400 Bad Request
-    }
-  
-    try {
-      const user = new User({ // Create user directly with the data
-        username: req.body.username,
-        role: req.body.role || 'member',
-        password: req.body.password,
-        email: req.body.email   
-      });
-  
-      await user.save(); // Use await with user.save()
-  
-      res.status(201).json({ success: true, msg: 'Successfully created new user.' }); // 201 Created
-    } catch (err) {
-      if (err.code === 11000) { // Strict equality check (===)
-        return res.status(409).json({ success: false, message: 'A user with that username already exists.' }); // 409 Conflict
-      } else {
-        console.error(err); // Log the error for debugging
-        return res.status(500).json({ success: false, message: 'Something went wrong. Please try again later.' }); // 500 Internal Server Error
-      }
-    }
-  });
-  
-  
-  router.post('/signin', async (req, res) => { // Use async/await
-    try {
-      const user = await User.findOne({ username: req.body.username }).select('name username password');
-  
-      if (!user) {
-        return res.status(401).json({ success: false, msg: 'Authentication failed. User not found.' }); // 401 Unauthorized
-      }
-  
-      const isMatch = await user.comparePassword(req.body.password); // Use await
-  
-      if (isMatch) {
-        const userToken = { id: user._id, username: user.username }; // Use user._id (standard Mongoose)
-        const token = jwt.sign(userToken, process.env.SECRET_KEY, { expiresIn: '1h' }); // Add expiry to the token (e.g., 1 hour)
-        res.json({ success: true, token: 'JWT ' + token });
-      } else {
-        res.status(401).json({ success: false, msg: 'Authentication failed. Incorrect password.' }); // 401 Unauthorized
-      }
-    } catch (err) {
-      console.error(err); // Log the error
-      res.status(500).json({ success: false, message: 'Something went wrong. Please try again later.' }); // 500 Internal Server Error
-    }
-  });
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_FROM,
-      pass: process.env.EMAIL_PASS
-    }
-  });
-
-  router.post('/assign', async (req, res) => {
-    const { title, description, section, assignmentNumber, assignedTo } = req.body;
-  
-    const user = await User.findById(assignedTo);
-    if (!user) return res.status(404).json({ msg: 'User not found' });
-  
-    const conflict = await Task.findOne({ section, assignmentNumber, assignedTo: { $ne: user._id } });
-    if (conflict) {
-      return res.status(400).json({ msg: `Section ${section} for assignment ${assignmentNumber} is already assigned.` });
-    }
-  
-    const task = new Task({ title, description, section, assignmentNumber, assignedTo: user._id });
-    await task.save();
-  
-    // Send email notification
-    transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: user.username,
-      subject: 'New Task Assigned',
-      text: `Hi ${user.name}, a new task "${title}" has been assigned to you.`
+  try {
+    const user = new User({
+      username,
+      email,
+      password,
+      role: role || 'member',
+      team: teamId || null
     });
-  
-    res.status(201).json({ msg: 'Task assigned', task });
-  });
-  
-  // Update task status - requires approval
-  router.put('/:id/status', async (req, res) => {
-    const { status, userId } = req.body;
-    const task = await Task.findById(req.params.id);
-  
-    if (!task) return res.status(404).json({ msg: 'Task not found' });
-  
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ msg: 'User not found' });
-  
-    if (status === 'completed' && (!task.approvedByLead || user.role !== 'lead')) {
-      return res.status(403).json({ msg: 'Only team leads can approve completed tasks.' });
-    }
-  
-    task.status = status;
-    await task.save();
-  
-    res.json({ msg: 'Task status updated', task });
-  });
-  
-  // Approve task completion (team lead)
-  router.put('/:id/approve', async (req, res) => {
-    const { userId } = req.body;
-    const user = await User.findById(userId);
-    if (!user || user.role !== 'lead') return res.status(403).json({ msg: 'Only team leads can approve tasks.' });
-  
-    const task = await Task.findById(req.params.id);
-    task.approvedByLead = true;
-    await task.save();
-  
-    res.json({ msg: 'Task approved by lead', task });
-  });
-  
-  // Get task progress
-  router.get('/progress', async (req, res) => {
-    const tasks = await Task.find().populate('assignedTo', 'name');
-    res.json(tasks);
-  });
 
-app.use('/', router);
-const PORT = process.env.PORT || 8080; // Define PORT before using it
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    await user.save();
+
+    // If a team ID is provided, add this user to the team's members list
+    if (teamId) {
+      await Team.findByIdAndUpdate(teamId, { $push: { members: user._id } });
+    }
+
+    res.status(201).json({ success: true, msg: 'Successfully created new user.' });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: 'A user with that username already exists.' });
+    } else {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Something went wrong. Please try again later.' });
+    }
+  }
 });
 
-module.exports = app; // for testing only
+// Signin
+router.post('/signin', async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.body.username }).select('username password role');
+    if (!user) return res.status(401).json({ success: false, msg: 'Authentication failed. User not found.' });
+
+    const isMatch = await user.comparePassword(req.body.password);
+    if (!isMatch) return res.status(401).json({ success: false, msg: 'Authentication failed. Incorrect password.' });
+
+    const token = jwt.sign({ id: user._id, username: user.username, role: user.role }, process.env.SECRET_KEY, { expiresIn: '1h' });
+    res.json({ success: true, token: 'JWT ' + token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Something went wrong. Please try again later.' });
+  }
+});
+
+// Assign Task to a team member
+router.post('/assign', async (req, res) => {
+  const { title, description, section, assignmentNumber, assignedTo } = req.body;
+  const user = await User.findById(assignedTo).populate('team');
+  if (!user) return res.status(404).json({ msg: 'User not found' });
+
+  // Prevent multiple users assigned to same section+assignmentNumber in the same team
+  const conflict = await Task.findOne({
+    section,
+    assignmentNumber,
+    team: user.team?._id
+  });
+
+  if (conflict) {
+    return res.status(400).json({ msg: `Section ${section} for assignment ${assignmentNumber} is already assigned within this team.` });
+  }
+
+  const task = new Task({
+    title,
+    description,
+    section,
+    assignmentNumber,
+    assignedTo: user._id,
+    team: user.team?._id
+  });
+  await task.save();
+
+  transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: user.username,
+    subject: 'New Task Assigned',
+    text: `Hi ${user.username}, a new task "${title}" has been assigned to you.`
+  });
+
+  res.status(201).json({ msg: 'Task assigned', task });
+});
+
+// Update Task Status
+router.put('/:id/status', async (req, res) => {
+  const { status, userId } = req.body;
+  const task = await Task.findById(req.params.id);
+  if (!task) return res.status(404).json({ msg: 'Task not found' });
+
+  const user = await User.findById(userId);
+  if (!user) return res.status(404).json({ msg: 'User not found' });
+
+  if (status === 'Completed' && (!task.approvedByLead || user.role !== 'lead')) {
+    return res.status(403).json({ msg: 'Only team leads can approve completed tasks.' });
+  }
+
+  task.status = status;
+  await task.save();
+
+  res.json({ msg: 'Task status updated', task });
+});
+
+// Approve Task Completion
+router.put('/:id/approve', async (req, res) => {
+  const { userId } = req.body;
+  const user = await User.findById(userId);
+  if (!user || user.role !== 'lead') return res.status(403).json({ msg: 'Only team leads can approve tasks.' });
+
+  const task = await Task.findById(req.params.id);
+  task.approvedByLead = true;
+  await task.save();
+
+  res.json({ msg: 'Task approved by lead', task });
+});
+
+// Get Task Progress for Team
+router.get('/progress', async (req, res) => {
+  const tasks = await Task.find().populate('assignedTo', 'username').populate('team', 'name');
+  res.json(tasks);
+});
+
+app.use('/', router);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+
+module.exports = app;
