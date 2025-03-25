@@ -14,6 +14,28 @@ const User = require('./users');
 const Task = require('./tasks');
 const Team = require('./team');
 const nodemailer = require('nodemailer');
+// create a team
+router.post('/teams', async (req, res) => {
+  try {
+    const team = new Team({
+      name: req.body.name,
+      description: req.body.description,
+      lead: req.body.leadId
+    });
+
+    await team.save();
+    res.status(201).json(team);
+  } catch (err) {
+    res.status(500).json({ msg: 'Error creating team', error: err.message });
+  }
+});
+// get team members
+router.get('/teams/:id/members', async (req, res) => {
+  const team = await Team.findById(req.params.id).populate('members', 'username email role');
+  if (!team) return res.status(404).json({ msg: 'Team not found' });
+  res.json(team.members);
+});
+
 // Signup route with optional team assignment
 router.post('/signup', async (req, res) => {
   const { username, password, email, role, teamId } = req.body;
