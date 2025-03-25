@@ -14,6 +14,15 @@ const User = require('./users');
 const Task = require('./tasks');
 const Team = require('./team');
 const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_FROM,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
 // create a team
 router.post('/teams', async (req, res) => {
   try {
@@ -29,11 +38,18 @@ router.post('/teams', async (req, res) => {
     res.status(500).json({ msg: 'Error creating team', error: err.message });
   }
 });
-// get team members
+// get team members and lead
 router.get('/teams/:id/members', async (req, res) => {
-  const team = await Team.findById(req.params.id).populate('members', 'username email role');
+  const team = await Team.findById(req.params.id)
+    .populate('members', 'username email role')
+    .populate('lead', 'username email role');
+
   if (!team) return res.status(404).json({ msg: 'Team not found' });
-  res.json(team.members);
+
+  res.json({
+    lead: team.lead,
+    members: team.members
+  });
 });
 
 // Signup route with optional team assignment
