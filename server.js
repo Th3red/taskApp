@@ -26,18 +26,27 @@ const transporter = nodemailer.createTransport({
 // create a team
 router.post('/teams', async (req, res) => {
   try {
+    const { name, description, leadId } = req.body;
+
     const team = new Team({
-      name: req.body.name,
-      description: req.body.description,
-      lead: req.body.leadId
+      name,
+      description,
+      lead: leadId,
+      members: [leadId] 
     });
 
     await team.save();
+
+    // Update the leads team field
+    await User.findByIdAndUpdate(leadId, { team: team._id });
+
     res.status(201).json(team);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: 'Error creating team', error: err.message });
   }
 });
+
 // get team members and lead
 router.get('/teams/:id/members', async (req, res) => {
   const team = await Team.findById(req.params.id)
