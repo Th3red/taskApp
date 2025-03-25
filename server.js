@@ -51,19 +51,38 @@ router.post('/signup', async (req, res) => {
 // Signin
 router.post('/signin', async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.body.username }).select('username password role');
-    if (!user) return res.status(401).json({ success: false, msg: 'Authentication failed. User not found.' });
+    const user = await User.findOne({ username: req.body.username }).select('username password role email team');
+
+    if (!user) {
+      return res.status(401).json({ success: false, msg: 'Authentication failed. User not found.' });
+    }
 
     const isMatch = await user.comparePassword(req.body.password);
-    if (!isMatch) return res.status(401).json({ success: false, msg: 'Authentication failed. Incorrect password.' });
 
-    const token = jwt.sign({ id: user._id, username: user.username, role: user.role }, process.env.SECRET_KEY, { expiresIn: '1h' });
-    res.json({ success: true, token: 'JWT ' + token });
+    if (isMatch) {
+      const tokenPayload = { id: user._id, username: user.username, role: user.role };
+      const token = jwt.sign(tokenPayload, process.env.SECRET_KEY, { expiresIn: '1h' });
+
+      res.json({
+        success: true,
+        token: 'JWT ' + token,
+        user: {
+          _id: user._id,
+          username: user.username,
+          role: user.role,
+          email: user.email,
+          team: user.team
+        }
+      });
+    } else {
+      res.status(401).json({ success: false, msg: 'Authentication failed. Incorrect password.' });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Something went wrong. Please try again later.' });
   }
 });
+
 
 // Assign Task to a team member
 router.post('/assign', async (req, res) => {
