@@ -14,8 +14,11 @@ connectDB();
 const TeamSchema = new Schema({
   name: { type: String, required: true, unique: true },
   description: String,
-  members: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-  lead: { type: Schema.Types.ObjectId, ref: 'User' }
+  members: [{
+    user: { type: Schema.Types.ObjectId, ref: 'User' },
+    role: { type: String, enum: ['member', 'lead'], default: 'member' }
+  }]
 });
+
 
 module.exports = mongoose.model('Team', TeamSchema);

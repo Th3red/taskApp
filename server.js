@@ -14,6 +14,7 @@ const User = require('./users');
 const Task = require('./tasks');
 const Team = require('./team');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose'); // if not already imported at top
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -23,29 +24,132 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// create a team
-router.post('/teams', async (req, res) => {
+// Create a team
+/*router.post('/teams', async (req, res) => {
   try {
-    const { name, description, leadId } = req.body;
+    let { name, description, leadID, members = [] } = req.body;
 
+    // 1. Make sure members is an array
+    if (typeof members === 'string') {
+      members = members.split(',').map(u => u.trim());
+    }
+
+    // 2. Lookup the lead using the **username** passed as leadID
+    //const leadUser = await User.findOne({ username: leadID });
+    //if (!leadUser) {
+    //  return res.status(404).json({ msg: `Lead user '${leadID}' not found.` });
+    //}
+
+    //const leadObjectId = leadUser._id;
+
+    // 3. Convert all member usernames to their ObjectIds
+   // const memberDocs = await User.find({ username: { $in: members } });
+   // const memberIds = memberDocs.map(user => user._id);
+    const membersData = [];
+    const leadUsername = leadID; // assuming `leadID` is a username now
+
+    for (const username of members) {
+      const user = await User.findOne({ username });
+      if (!user) continue;
+    
+      const role = (username === leadUsername) ? 'lead' : 'member'; // If using username as input
+      membersData.push({ user: user._id, role });
+    }
+    
+    // 4. Make sure the lead is also included in the members list
+   // if (!memberIds.some(id => id.equals(leadObjectId))) {
+    //  memberIds.unshift(leadObjectId);
+    //}
+
+    // 5. Create the team
+   // const team = new Team({
+    //  name,
+     // description,
+     // lead: leadObjectId,
+     // members: memberIds
+    //});
     const team = new Team({
       name,
       description,
-      lead: leadId,
-      members: [leadId] 
+      members: membersData
+    });
+       
+    await team.save();
+    // After saving the team, assign team to each user in membersData
+    for (const member of membersData) {
+      await User.findByIdAndUpdate(member.user, { team: team._id });
+    }
+
+    // 6. Update lead's role to "lead" and assign them the team
+    //await User.findByIdAndUpdate(leadObjectId, {
+    //  role: 'lead',
+    //  team: team._id
+    //});
+
+    // 7. Assign the team to all other members
+   // await User.updateMany(
+   //   { _id: { $in: memberIds } },
+    //  { $set: { team: team._id } }
+    //);
+
+    res.status(201).json(team);
+  } catch (err) {
+    console.error('Error creating team:', err);
+    res.status(500).json({ msg: 'Error creating team', error: err.message });
+  }
+}); */
+// Create a team using embedded roles in TeamSchema
+router.post('/teams', async (req, res) => {
+  try {
+    let { name, description, leadUsername, members = [] } = req.body;
+
+    // Ensure members is an array of usernames
+    if (typeof members === 'string') {
+      members = members.split(',').map(u => u.trim());
+    }
+
+    // 1. Find the lead user by username (email)
+    const leadUser = await User.findOne({ username: leadUsername });
+    if (!leadUser) {
+      return res.status(404).json({ msg: `Lead user '${leadUsername}' not found.` });
+    }
+
+    const teamMembers = [];
+
+    // 2. Add the lead to the teamMembers array with role 'lead'
+    teamMembers.push({ user: leadUser._id, role: 'lead' });
+
+    // 3. Find and add other members with role 'member'
+    for (const username of members) {
+      if (username === leadUsername) continue; // Already added as lead
+      const user = await User.findOne({ username });
+      if (user) {
+        teamMembers.push({ user: user._id, role: 'member' });
+      }
+    }
+
+    // 4. Create the team
+    const team = new Team({
+      name,
+      description,
+      members: teamMembers
     });
 
     await team.save();
 
-    // Update the leads team field
-    await User.findByIdAndUpdate(leadId, { team: team._id });
+    // 5. Update all users to reference this team
+    const userIds = teamMembers.map(m => m.user);
+    await User.updateMany({ _id: { $in: userIds } }, { $set: { team: team._id } });
 
     res.status(201).json(team);
   } catch (err) {
-    console.error(err);
+    console.error('Error creating team:', err);
     res.status(500).json({ msg: 'Error creating team', error: err.message });
   }
 });
+
+
+
 
 // get team members and lead
 router.get('/teams/:id/members', async (req, res) => {
@@ -58,6 +162,16 @@ router.get('/teams/:id/members', async (req, res) => {
   res.json({
     lead: team.lead,
     members: team.members
+  });
+});
+
+// get team id by user id
+router.get('/teams/user/:id', async (req, res) => {
+  const user = await User.findById(req.params.id).populate('team', 'name');
+  if (!user) return res.status(404).json({ msg: 'User not found' });
+
+  res.json({
+    team: user.team
   });
 });
 
@@ -98,7 +212,7 @@ router.post('/signup', async (req, res) => {
 // Signin
 router.post('/signin', async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.body.username }).select('username password role email team');
+    const user = await User.findOne({ email: req.body.username }).select('username password role email team');
 
     if (!user) {
       return res.status(401).json({ success: false, msg: 'Authentication failed. User not found.' });
@@ -158,12 +272,12 @@ router.post('/assign', async (req, res) => {
   });
   await task.save();
 
-  transporter.sendMail({
-    from: process.env.EMAIL_FROM,
-    to: user.username,
-    subject: 'New Task Assigned',
-    text: `Hi ${user.username}, a new task "${title}" has been assigned to you.`
-  });
+//  transporter.sendMail({
+//    from: process.env.EMAIL_FROM,
+//    to: user.username,
+//    subject: 'New Task Assigned',
+//    text: `Hi ${user.username}, a new task "${title}" has been assigned to you.`
+//  }); 
 
   res.status(201).json({ msg: 'Task assigned', task });
 });
@@ -171,21 +285,20 @@ router.post('/assign', async (req, res) => {
 // Update Task Status
 router.put('/:id/status', async (req, res) => {
   const { status, userId } = req.body;
+
   const task = await Task.findById(req.params.id);
   if (!task) return res.status(404).json({ msg: 'Task not found' });
 
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ msg: 'User not found' });
 
-  if (status === 'Completed' && (!task.approvedByLead || user.role !== 'lead')) {
-    return res.status(403).json({ msg: 'Only team leads can approve completed tasks.' });
-  }
-
+  // ✅ Remove any lead approval checks
   task.status = status;
   await task.save();
 
   res.json({ msg: 'Task status updated', task });
 });
+
 
 // Approve Task Completion
 router.put('/:id/approve', async (req, res) => {
@@ -204,6 +317,20 @@ router.put('/:id/approve', async (req, res) => {
 router.get('/progress', async (req, res) => {
   const tasks = await Task.find().populate('assignedTo', 'username').populate('team', 'name');
   res.json(tasks);
+});
+// Get Task Progress for a specific team
+router.get('/progress/:teamId', async (req, res) => {
+  try {
+    const teamId = req.params.teamId;
+    const tasks = await Task.find({ team: teamId })
+      .populate('assignedTo', 'username')
+      .populate('team', 'name');
+
+    res.json(tasks);
+  } catch (err) {
+    console.error('Error fetching tasks:', err);
+    res.status(500).json({ msg: 'Failed to load team tasks' });
+  }
 });
 
 app.use('/', router);
