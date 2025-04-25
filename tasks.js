@@ -25,7 +25,7 @@ const TaskSchema = new Schema({
   section: { type: Number},
   assignmentNumber: {type: Number},
   assignedTo: {type: Schema.Types.ObjectId, ref: 'User'},
-  status: { type: String, enum: ['Backlog', 'Todo', 'Not Started', 'In Progress', 'Completed'], default: 'Not Started' },
+  status: { type: String, enum: ['Backlog', 'Todo', 'In Progress', 'Completed'], default: 'Todo' },
   approvalByLead: { type: Boolean, default: false},
   dueDate: { type: Date},
   createdAt: { type: Date, default: Date.now },
