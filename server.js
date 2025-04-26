@@ -330,6 +330,20 @@ router.put('/:id/status', async (req, res) => {
 
   res.json({ msg: 'Task status updated', task });
 });
+// PATCH /tasks/:id   (or PUT)
+router.put('/tasks/:id', async (req, res) => {
+  const { title, description, dueDate } = req.body;
+  try {
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      { title, description, dueDate },
+      { new: true }
+    );
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ msg: 'Error updating task', error: err.message });
+  }
+});
 
 
 // Approve Task Completion
