@@ -5,8 +5,7 @@ const passport = require('passport');
 const authJwtController = require('./auth_jwt');
 const jwt = require('jsonwebtoken');
 const app = express();
-const ALLOWED_ORIGIN = 'http://localhost:3000'
-  || 'https://taskapp-frontend-wrwn.onrender.com';
+const ALLOWED_ORIGIN = 'https://taskapp-frontend-wrwn.onrender.com';
 
 app.use(cors({
   origin: ALLOWED_ORIGIN,
