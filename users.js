@@ -29,7 +29,7 @@ const UserSchema = new Schema({
         required: true
     }
     });
-    UserSchema.pre('save', async function(next) {  // Use async/await for cleaner code
+    UserSchema.pre('save', async function(next) { 
         const user = this;
     
         if (!user.isModified('password')) return next();
